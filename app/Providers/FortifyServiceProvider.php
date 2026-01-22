@@ -18,9 +18,9 @@ use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
 use Laravel\Fortify\Contracts\LoginResponse as LoginResponseContract;
 use Laravel\Fortify\Contracts\RegisterResponse as RegisterResponseContract;
-use Laravel\Fortify\Contracts\FailedLoginResponse as FailedLoginResponseContract;
+use Laravel\Fortify\Contracts\LockoutResponse as LockoutResponseContract;
 use Laravel\Fortify\Fortify;
-use App\Http\Responses\FailedLoginResponse;
+use App\Http\Responses\LockoutResponse;
 
 class FortifyServiceProvider extends ServiceProvider
 {
@@ -33,8 +33,8 @@ class FortifyServiceProvider extends ServiceProvider
         $this->app->singleton(LoginResponseContract::class, LoginResponse::class);
         $this->app->singleton(RegisterResponseContract::class, RegisterResponse::class);
         
-        // Generic error message for failed login (prevent user enumeration)
-        $this->app->singleton(FailedLoginResponseContract::class, FailedLoginResponse::class);
+        // Custom lockout response (when account is locked after too many failed attempts)
+        $this->app->singleton(LockoutResponseContract::class, LockoutResponse::class);
     }
 
     /**

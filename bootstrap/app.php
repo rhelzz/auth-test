@@ -44,4 +44,13 @@ return Application::configure(basePath: dirname(__DIR__))
                 ], Response::HTTP_TOO_MANY_REQUESTS);
             }
         });
+        
+        // Generic error for failed login (prevent user enumeration)
+        $exceptions->render(function (\Illuminate\Validation\ValidationException $e, Request $request) {
+            if ($request->is('api/login')) {
+                return response()->json([
+                    'message' => 'Email atau password salah.',
+                ], 401);
+            }
+        });
     })->create();
