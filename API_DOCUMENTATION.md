@@ -435,7 +435,7 @@ http GET http://127.0.0.1:8000/api/user \
 
 ## 📚 Additional Resources
 
-- [Laravel Fortify Documentation](https://laravel.com/docs/11.x/fortify)
-- [Laravel Sanctum Documentation](https://laravel.com/docs/11.x/sanctum)
+- [Laravel Fortify Documentation](https://laravel.com/docs/12.x/fortify)
+- [Laravel Sanctum Documentation](https://laravel.com/docs/12.x/sanctum)
 - [HTTPie Documentation](https://httpie.io/docs/cli)
 
