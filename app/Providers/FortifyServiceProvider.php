@@ -18,7 +18,9 @@ use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
 use Laravel\Fortify\Contracts\LoginResponse as LoginResponseContract;
 use Laravel\Fortify\Contracts\RegisterResponse as RegisterResponseContract;
+use Laravel\Fortify\Contracts\FailedLoginResponse as FailedLoginResponseContract;
 use Laravel\Fortify\Fortify;
+use App\Http\Responses\FailedLoginResponse;
 
 class FortifyServiceProvider extends ServiceProvider
 {
@@ -30,6 +32,9 @@ class FortifyServiceProvider extends ServiceProvider
         // Register custom response contracts
         $this->app->singleton(LoginResponseContract::class, LoginResponse::class);
         $this->app->singleton(RegisterResponseContract::class, RegisterResponse::class);
+        
+        // Generic error message for failed login (prevent user enumeration)
+        $this->app->singleton(FailedLoginResponseContract::class, FailedLoginResponse::class);
     }
 
     /**
@@ -42,7 +47,7 @@ class FortifyServiceProvider extends ServiceProvider
         Fortify::updateUserPasswordsUsing(UpdateUserPassword::class);
         Fortify::resetUserPasswordsUsing(ResetUserPassword::class);
 
-        // Custom authentication with strict validation
+        // Custom authentication with strict validation and account lockout
         Fortify::authenticateUsing(function (Request $request) {
             // Validate login input strictly - ONLY email and password allowed
             $validator = Validator::make($request->only(['email', 'password']), [
@@ -66,25 +71,57 @@ class FortifyServiceProvider extends ServiceProvider
 
             // Normalize email
             $email = strtolower(trim($request->email));
+            
+            // Check if account is locked (5 failed attempts = 15 min lockout)
+            $lockoutKey = 'login-lockout:' . $email;
+            if (RateLimiter::tooManyAttempts($lockoutKey, 5)) {
+                return null; // Account is locked
+            }
 
             // Find user
             $user = User::where('email', $email)->first();
 
-            // Verify password with timing-safe comparison
-            if ($user && Hash::check($request->password, $user->password)) {
+            // SECURITY: Always perform hash check to prevent timing attacks
+            // Even if user doesn't exist, we hash a dummy password
+            $passwordToCheck = $user ? $user->password : '$2y$10$dummyhashtopreventtimingattacks';
+            $isValidPassword = Hash::check($request->password, $passwordToCheck);
+
+            // Verify password
+            if ($user && $isValidPassword) {
+                // Clear failed attempts on successful login
+                RateLimiter::clear($lockoutKey);
                 return $user;
             }
+
+            // Increment failed attempts (15 min decay)
+            RateLimiter::hit($lockoutKey, 900);
 
             return null;
         });
 
-        // Rate limiting for login - 5 attempts per minute per email+IP
+        // Rate limiting for login - 1 attempt per minute per IP
         RateLimiter::for('login', function (Request $request) {
-            $email = Str::transliterate(Str::lower($request->input(Fortify::username()) ?? ''));
             $ip = $request->ip();
-            $key = $email . '|' . $ip;
             
-            return Limit::perMinute(5)->by($key);
+            return Limit::perMinute(1)->by('login|' . $ip)->response(function (Request $request, array $headers) {
+                return response()->json([
+                    'message' => 'Terlalu banyak percobaan login. Silakan tunggu 1 menit.',
+                    'retry_after' => $headers['Retry-After'] ?? 60,
+                ], 429, $headers);
+            });
+        });
+
+        // Rate limiting for registration - 1 attempt per 3 hours per IP
+        RateLimiter::for('register', function (Request $request) {
+            $ip = $request->ip();
+            
+            // 3 hours = 180 minutes
+            return Limit::perMinutes(180, 1)->by('register|' . $ip)->response(function (Request $request, array $headers) {
+                return response()->json([
+                    'message' => 'Anda hanya dapat mendaftar 1x setiap 3 jam. Silakan tunggu.',
+                    'retry_after' => $headers['Retry-After'] ?? 10800,
+                ], 429, $headers);
+            });
         });
 
         // Rate limiting for two-factor

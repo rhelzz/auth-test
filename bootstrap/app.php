@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\SanitizeInput;
+use App\Http\Middleware\ThrottleRegister;
 use App\Http\Middleware\ValidateJsonRequest;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -25,6 +26,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->api(prepend: [
             ValidateJsonRequest::class,
             SanitizeInput::class,
+            ThrottleRegister::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

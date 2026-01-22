@@ -116,7 +116,17 @@ Accept: application/json
 **Error Response (401 Unauthorized):**
 ```json
 {
-    "message": "These credentials do not match our records."
+    "message": "Email atau password salah.",
+    "attempts_remaining": 4
+}
+```
+
+**Error Response (429 Account Locked):**
+```json
+{
+    "message": "Akun dikunci sementara karena terlalu banyak percobaan gagal. Silakan coba lagi dalam 15 menit.",
+    "retry_after": 900,
+    "locked": true
 }
 ```
 
@@ -289,7 +299,7 @@ curl -X POST http://127.0.0.1:8000/api/logout \
 
 ### Sanctum Settings
 - **Guard:** `sanctum` (used for protected routes)
-- **Token expiration:** No expiration by default
+- **Token expiration:** 60 menit (token otomatis expired)
 
 ---
 
@@ -300,7 +310,12 @@ curl -X POST http://127.0.0.1:8000/api/logout \
 | Password Hashing | ✅ | Bcrypt via `Hash::make()` |
 | Strong Password | ✅ | Uppercase, lowercase, number, symbol required |
 | Breached Password Check | ✅ | Checked against Have I Been Pwned database |
-| Rate Limiting | ✅ | 5 login attempts per minute per email+IP |
+| Register Rate Limit | ✅ | **1 register per 3 jam per IP** |
+| Login Rate Limit | ✅ | **1 login attempt per 1 menit per IP** |
+| Account Lockout | ✅ | **Block 15 menit setelah 5 failed attempts per email** |
+| Token Expiration | ✅ | **Token expired setelah 60 menit** |
+| Generic Error Messages | ✅ | **Tidak mengungkapkan apakah email terdaftar** |
+| Timing Attack Prevention | ✅ | **Hash check dilakukan meskipun user tidak ada** |
 | JSON Validation | ✅ | Content-Type and format validation |
 | Input Sanitization | ✅ | Null bytes removed, trimmed |
 | Name Regex | ✅ | Only letters, spaces, hyphens, apostrophes |
@@ -345,8 +360,35 @@ curl -X POST http://127.0.0.1:8000/api/logout \
 - Field required tidak diisi
 
 ### 429 Too Many Requests
-- Rate limit exceeded (lebih dari 5 login attempts per menit)
-- Tunggu 1 menit lalu coba lagi
+- **Login:** Rate limit exceeded (lebih dari 1 attempt per menit)
+- **Login Lockout:** 5 percobaan gagal = akun dikunci 15 menit
+- **Register:** Rate limit exceeded (hanya 1 register per 3 jam per IP)
+- Response akan menampilkan waktu tunggu dalam `retry_after`
+
+**Contoh Response Login Rate Limit:**
+```json
+{
+    "message": "Terlalu banyak percobaan login. Silakan tunggu 1 menit.",
+    "retry_after": 60
+}
+```
+
+**Contoh Response Account Lockout (5 failed attempts):**
+```json
+{
+    "message": "Akun dikunci sementara karena terlalu banyak percobaan gagal. Silakan coba lagi dalam 15 menit.",
+    "retry_after": 900,
+    "locked": true
+}
+```
+
+**Contoh Response Register Rate Limit:**
+```json
+{
+    "message": "Anda hanya dapat mendaftar 1x setiap 3 jam. Silakan tunggu 2 jam 45 menit lagi.",
+    "retry_after": 9900
+}
+```
 
 ---
 
