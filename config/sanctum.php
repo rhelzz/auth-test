@@ -47,7 +47,7 @@ return [
     |
     */
 
-    'expiration' => 60, // Token expires in 60 minutes
+    'expiration' => 15, // Access token expires in 15 minutes
 
     /*
     |--------------------------------------------------------------------------

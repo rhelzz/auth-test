@@ -8,7 +8,9 @@ use App\Actions\Fortify\UpdateUserPassword;
 use App\Actions\Fortify\UpdateUserProfileInformation;
 use App\Http\Responses\LoginResponse;
 use App\Http\Responses\RegisterResponse;
+use App\Http\Responses\LockoutResponse;
 use App\Models\User;
+use App\Services\AuditLogService;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -20,7 +22,6 @@ use Laravel\Fortify\Contracts\LoginResponse as LoginResponseContract;
 use Laravel\Fortify\Contracts\RegisterResponse as RegisterResponseContract;
 use Laravel\Fortify\Contracts\LockoutResponse as LockoutResponseContract;
 use Laravel\Fortify\Fortify;
-use App\Http\Responses\LockoutResponse;
 
 class FortifyServiceProvider extends ServiceProvider
 {
@@ -75,6 +76,8 @@ class FortifyServiceProvider extends ServiceProvider
             // Check if account is locked (5 failed attempts = 15 min lockout)
             $lockoutKey = 'login-lockout:' . $email;
             if (RateLimiter::tooManyAttempts($lockoutKey, 5)) {
+                // Log account locked
+                AuditLogService::logAccountLocked($email, $request);
                 return null; // Account is locked
             }
 
@@ -95,6 +98,9 @@ class FortifyServiceProvider extends ServiceProvider
 
             // Increment failed attempts (15 min decay)
             RateLimiter::hit($lockoutKey, 900);
+            
+            // Log failed login attempt
+            AuditLogService::logLoginFailed($email, 'Invalid credentials', $request);
 
             return null;
         });

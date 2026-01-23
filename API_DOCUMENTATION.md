@@ -51,13 +51,19 @@ Accept: application/json
         "id": 1,
         "name": "John Doe",
         "email": "john@example.com",
-        "email_verified_at": null,
-        "created_at": "2026-01-22T15:00:00.000000Z",
-        "updated_at": "2026-01-22T15:00:00.000000Z"
+        "created_at": "2026-01-22T15:00:00.000000Z"
     },
     "access_token": "1|xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-    "token_type": "Bearer"
+    "refresh_token": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "token_type": "Bearer",
+    "expires_in": 900,
+    "refresh_expires_in": 604800
 }
+```
+
+> ⏱️ **Token Expiration:**
+> - `access_token`: Valid 15 menit (900 detik)
+> - `refresh_token`: Valid 7 hari (604800 detik)
 ```
 
 **Error Response (422 Unprocessable Entity):**
@@ -104,13 +110,19 @@ Accept: application/json
         "id": 1,
         "name": "John Doe",
         "email": "john@example.com",
-        "email_verified_at": null,
-        "created_at": "2026-01-22T15:00:00.000000Z",
-        "updated_at": "2026-01-22T15:00:00.000000Z"
+        "created_at": "2026-01-22T15:00:00.000000Z"
     },
     "access_token": "2|xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-    "token_type": "Bearer"
+    "refresh_token": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "token_type": "Bearer",
+    "expires_in": 900,
+    "refresh_expires_in": 604800
 }
+```
+
+> ⏱️ **Token Expiration:**
+> - `access_token`: Valid 15 menit (900 detik)
+> - `refresh_token`: Valid 7 hari (604800 detik)
 ```
 
 **Error Response (401 Unauthorized):**
@@ -132,14 +144,54 @@ Accept: application/json
 
 ---
 
-### 3. Logout User
+### 3. Refresh Token
+
+**Endpoint:** `POST /api/refresh`
+
+**Headers:**
+```
+Content-Type: application/json
+Accept: application/json
+```
+
+**Request Body:**
+```json
+{
+    "refresh_token": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+}
+```
+
+**Success Response (200 OK):**
+```json
+{
+    "message": "Token refreshed successfully",
+    "access_token": "3|yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+    "refresh_token": "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+    "token_type": "Bearer",
+    "expires_in": 900,
+    "refresh_expires_in": 604800
+}
+```
+
+> 🔄 **Token Rotation:** Setiap refresh, kedua token (access & refresh) akan diganti dengan yang baru untuk keamanan.
+
+**Error Response (401 Unauthorized):**
+```json
+{
+    "message": "Invalid or expired refresh token"
+}
+```
+
+---
+
+### 4. Logout User
 
 **Endpoint:** `POST /api/logout`
 
 **Headers:**
 ```
 Accept: application/json
-Authorization: Bearer {your_token_here}
+Authorization: Bearer {your_access_token}
 ```
 
 **Success Response (200 OK):**
@@ -149,23 +201,39 @@ Authorization: Bearer {your_token_here}
 }
 ```
 
-**Error Response (401 Unauthorized):**
-```json
-{
-    "message": "Unauthenticated."
-}
-```
+> ℹ️ Logout akan revoke access token saat ini DAN refresh token terkait.
 
 ---
 
-### 4. Get Authenticated User
+### 5. Logout from All Devices
+
+**Endpoint:** `POST /api/logout-all`
+
+**Headers:**
+```
+Accept: application/json
+Authorization: Bearer {your_access_token}
+```
+
+**Success Response (200 OK):**
+```json
+{
+    "message": "Logged out from all devices successfully"
+}
+```
+
+> ⚠️ Ini akan revoke SEMUA token dari semua perangkat.
+
+---
+
+### 6. Get Authenticated User
 
 **Endpoint:** `GET /api/user`
 
 **Headers:**
 ```
 Accept: application/json
-Authorization: Bearer {your_token_here}
+Authorization: Bearer {your_access_token}
 ```
 
 **Success Response (200 OK):**
@@ -186,6 +254,86 @@ Authorization: Bearer {your_token_here}
     "message": "Unauthenticated."
 }
 ```
+
+---
+
+### 7. Get Active Sessions
+
+**Endpoint:** `GET /api/sessions`
+
+**Headers:**
+```
+Accept: application/json
+Authorization: Bearer {your_access_token}
+```
+
+**Success Response (200 OK):**
+```json
+{
+    "sessions": [
+        {
+            "id": 1,
+            "ip_address": "127.0.0.1",
+            "user_agent": "Mozilla/5.0...",
+            "created_at": "2026-01-23T10:00:00.000000Z",
+            "expires_at": "2026-01-30T10:00:00.000000Z",
+            "is_current": true
+        },
+        {
+            "id": 2,
+            "ip_address": "192.168.1.100",
+            "user_agent": "HTTPie/3.2.1",
+            "created_at": "2026-01-22T08:00:00.000000Z",
+            "expires_at": "2026-01-29T08:00:00.000000Z",
+            "is_current": false
+        }
+    ]
+}
+```
+
+---
+
+### 8. Get Audit Logs
+
+**Endpoint:** `GET /api/audit-logs`
+
+**Headers:**
+```
+Accept: application/json
+Authorization: Bearer {your_access_token}
+```
+
+**Success Response (200 OK):**
+```json
+{
+    "audit_logs": [
+        {
+            "event": "login_success",
+            "status": "success",
+            "ip_address": "127.0.0.1",
+            "user_agent": "Mozilla/5.0...",
+            "created_at": "2026-01-23T10:00:00.000000Z"
+        },
+        {
+            "event": "token_created",
+            "status": "success",
+            "ip_address": "127.0.0.1",
+            "user_agent": "Mozilla/5.0...",
+            "created_at": "2026-01-23T10:00:00.000000Z"
+        }
+    ]
+}
+```
+
+**Event Types:**
+- `login_success` - Login berhasil
+- `login_failed` - Login gagal
+- `logout` - User logout
+- `token_created` - Token baru dibuat
+- `token_refreshed` - Token di-refresh
+- `token_revoked` - Token di-revoke
+- `account_locked` - Akun dikunci karena too many failed attempts
+- `register` - User baru mendaftar
 
 ---
 
@@ -231,18 +379,46 @@ http POST http://127.0.0.1:8000/api/login \
     password="SecureP@ss123!"
 ```
 
-### 3. Get User Info (with Token)
+### 3. Refresh Token
+
+```bash
+http POST http://127.0.0.1:8000/api/refresh \
+    refresh_token="YOUR_REFRESH_TOKEN_HERE"
+```
+
+### 4. Get User Info (with Token)
 
 ```bash
 http GET http://127.0.0.1:8000/api/user \
-    "Authorization:Bearer YOUR_TOKEN_HERE"
+    "Authorization:Bearer YOUR_ACCESS_TOKEN"
 ```
 
-### 4. Logout
+### 5. Get Active Sessions
+
+```bash
+http GET http://127.0.0.1:8000/api/sessions \
+    "Authorization:Bearer YOUR_ACCESS_TOKEN"
+```
+
+### 6. Get Audit Logs
+
+```bash
+http GET http://127.0.0.1:8000/api/audit-logs \
+    "Authorization:Bearer YOUR_ACCESS_TOKEN"
+```
+
+### 7. Logout (Current Device)
 
 ```bash
 http POST http://127.0.0.1:8000/api/logout \
-    "Authorization:Bearer YOUR_TOKEN_HERE"
+    "Authorization:Bearer YOUR_ACCESS_TOKEN"
+```
+
+### 8. Logout from All Devices
+
+```bash
+http POST http://127.0.0.1:8000/api/logout-all \
+    "Authorization:Bearer YOUR_ACCESS_TOKEN"
 ```
 
 ---
@@ -299,7 +475,8 @@ curl -X POST http://127.0.0.1:8000/api/logout \
 
 ### Sanctum Settings
 - **Guard:** `sanctum` (used for protected routes)
-- **Token expiration:** 60 menit (token otomatis expired)
+- **Access Token expiration:** 15 menit
+- **Refresh Token expiration:** 7 hari
 
 ---
 
@@ -313,7 +490,9 @@ curl -X POST http://127.0.0.1:8000/api/logout \
 | Register Rate Limit | ✅ | **1 register per 3 jam per IP** |
 | Login Rate Limit | ✅ | **1 login attempt per 1 menit per IP** |
 | Account Lockout | ✅ | **Block 15 menit setelah 5 failed attempts per email** |
-| Token Expiration | ✅ | **Token expired setelah 60 menit** |
+| Access Token Expiration | ✅ | **Token expired setelah 15 menit** |
+| Refresh Token | ✅ | **Valid 7 hari untuk extend session** |
+| Token Rotation | ✅ | **Refresh menghasilkan token baru (access + refresh)** |
 | Generic Error Messages | ✅ | **Tidak mengungkapkan apakah email terdaftar** |
 | Timing Attack Prevention | ✅ | **Hash check dilakukan meskipun user tidak ada** |
 | JSON Validation | ✅ | Content-Type and format validation |
@@ -321,6 +500,9 @@ curl -X POST http://127.0.0.1:8000/api/logout \
 | Name Regex | ✅ | Only letters, spaces, hyphens, apostrophes |
 | Email Normalization | ✅ | Lowercase + RFC + DNS validation |
 | Token Revocation | ✅ | Logout deletes current token |
+| Logout All Devices | ✅ | **Revoke semua token dari semua perangkat** |
+| Session Management | ✅ | **Lihat semua active sessions** |
+| Audit Logging | ✅ | **Log semua auth events (login, logout, token, etc)** |
 | Strict Login Fields | ✅ | Only email & password accepted |
 
 ---
